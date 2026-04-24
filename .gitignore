@@ -42,4 +42,5 @@ next-env.d.ts
 
 # local image uploads and database files
 /uploads/
+/public/uploads/
 *.db

@@ -1,63 +1,63 @@
-import { NextRequest, NextResponse } from "next/server";
-import { initDb, dbPromise } from "../../db";
-import fs from "fs";
-import path from "path";
+import fs from "node:fs/promises";
+import path from "node:path";
 
-export const dynamic = 'force-dynamic';
+import { NextRequest, NextResponse } from "next/server.js";
 
-export async function POST(req: NextRequest) {
-  await initDb();
+import { classifyGarment } from "../../../lib/classifier.ts";
+import { createImageRecord, initDb } from "../../../lib/repository.ts";
 
-  // 1. 获取 Form Data
-  const formData = await req.formData();
-  const file = formData.get('image') as File | null;
-  if (!file) {
-    return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
-  }
+export const dynamic = "force-dynamic";
 
-  // 2. 存储文件
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await fs.promises.mkdir("uploads", { recursive: true });
-  const filePath = path.join("uploads", `${Date.now()}-${file.name}`);
-  await fs.promises.writeFile(filePath, buffer);
+function getUploadDir() {
+  return process.env.GARMENT_UPLOAD_DIR || path.join(process.cwd(), "public", "uploads");
+}
 
-  // 3. Mock AI
-  const aiResult = {
-    description: "A red cotton dress with floral prints.",
-    attributes: {
-      type: "dress",
-      style: "casual",
-      material: "cotton",
-      color_palette: ["red"],
-      pattern: "floral",
-      season: "summer",
-      occasion: ["daily"],
-      consumer_profile: "female",
-      trend_notes: "floral print",
-      location_context: "street market",
+function sanitizeFilename(name: string) {
+  return name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    await initDb();
+
+    const formData = await request.formData();
+    const file = formData.get("image");
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: "Please attach an image file." }, { status: 400 });
     }
-  };
 
-  // 4. 写入数据库
-  const db = await dbPromise;
-  const stmt = await db.run(
-    `INSERT INTO images (filename, filepath, ai_description, ai_attributes, user_annotations) VALUES (?, ?, ?, ?, ?)`,
-    file.name,
-    filePath,
-    aiResult.description,
-    JSON.stringify(aiResult.attributes),
-    JSON.stringify([])
-  );
-  const imageId = stmt.lastID;
+    const uploadDir = getUploadDir();
+    await fs.mkdir(uploadDir, { recursive: true });
 
-  // 5. 返回
-  return NextResponse.json({
-    id: imageId,
-    filename: file.name,
-    filepath: filePath,
-    ai_description: aiResult.description,
-    ai_attributes: aiResult.attributes,
-    user_annotations: [],
-    created_at: new Date(),
-  });
+    const storedName = `${Date.now()}-${sanitizeFilename(file.name)}`;
+    const absolutePath = path.join(uploadDir, storedName);
+    const imageUrl = `/uploads/${storedName}`;
+
+    const bytes = Buffer.from(await file.arrayBuffer());
+    await fs.writeFile(absolutePath, bytes);
+
+    const context = {
+      designer: String(formData.get("designer") || "Unknown"),
+      continent: String(formData.get("continent") || "Unknown"),
+      country: String(formData.get("country") || "Unknown"),
+      city: String(formData.get("city") || "Unknown"),
+      venue: String(formData.get("venue") || "Unknown"),
+      capturedAt: String(formData.get("capturedAt") || new Date().toISOString().slice(0, 10)),
+    };
+
+    const aiResult = classifyGarment(file.name, context);
+    const image = await createImageRecord({
+      filename: file.name,
+      imageUrl,
+      aiDescription: aiResult.description,
+      attributes: aiResult.attributes,
+      designer: context.designer,
+      capturedAt: context.capturedAt,
+    });
+
+    return NextResponse.json({ image }, { status: 201 });
+  } catch (error) {
+    console.error("Upload failed", error);
+    return NextResponse.json({ error: "Unable to process the uploaded image." }, { status: 500 });
+  }
 }

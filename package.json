@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --experimental-strip-types --experimental-specifier-resolution=node --test tests/unit/*.test.ts tests/integration/*.test.ts tests/e2e/*.test.ts",
+    "test:unit": "node --experimental-strip-types --experimental-specifier-resolution=node --test tests/unit/*.test.ts",
+    "test:integration": "node --experimental-strip-types --experimental-specifier-resolution=node --test tests/integration/*.test.ts",
+    "test:e2e": "node --experimental-strip-types --experimental-specifier-resolution=node --test tests/e2e/*.test.ts",
+    "eval": "node --experimental-strip-types --experimental-specifier-resolution=node eval/run-eval.ts"
   },
   "dependencies": {
     "axios": "^1.15.0",
