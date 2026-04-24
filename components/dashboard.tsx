@@ -27,6 +27,10 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unexpected error";
 }
 
+function uniqueNonEmpty(values: string[]) {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
 export default function Dashboard({ initialImages }: DashboardProps) {
   const [images, setImages] = useState(initialImages);
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
@@ -226,8 +230,14 @@ export default function Dashboard({ initialImages }: DashboardProps) {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {[image.attributes.style, image.attributes.material, image.attributes.pattern, image.attributes.season, ...image.attributes.colorPalette].map((item) => (
-                  <span key={`${image.id}-${item}`} className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">
+                {uniqueNonEmpty([
+                  image.attributes.style,
+                  image.attributes.material,
+                  image.attributes.pattern,
+                  image.attributes.season,
+                  ...image.attributes.colorPalette,
+                ]).map((item, index) => (
+                  <span key={`${image.id}-${item}-${index}`} className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">
                     {item}
                   </span>
                 ))}
