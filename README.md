@@ -2,6 +2,12 @@
 
 A lightweight Next.js proof of concept for the fashion-garment case study. Designers can upload field imagery, generate structured garment metadata with a local multimodal mock, filter the library across product and contextual dimensions, and add their own annotations.
 
+## Live Demo
+
+Vercel demo: https://fashion-garment-app-t3t4.vercel.app/
+
+Note: the Vercel deployment runs in demo mode for serverless compatibility. It includes seeded sample data and lightweight demo interactions, while the full local workflow uses SQLite plus local file storage.
+
 ## What is implemented
 
 - Image upload with local file persistence in `public/uploads`
