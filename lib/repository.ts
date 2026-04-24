@@ -1,8 +1,8 @@
 import path from "node:path";
-import sqlite3 from "sqlite3";
-import { open, type Database } from "sqlite";
 
 import { parseClassifierOutput } from "./classifier.ts";
+import { getDemoSeedImages } from "./demo-data.ts";
+import { isDemoDeployment } from "./runtime.ts";
 import type { Annotation, GarmentImage, StructuredAttributes } from "./types.ts";
 
 type ImageRow = {
@@ -18,17 +18,51 @@ type ImageRow = {
   created_at: string;
 };
 
-let dbInstance: Promise<Database<sqlite3.Database, sqlite3.Statement>> | null = null;
+type SqliteModule = typeof import("sqlite");
+type Sqlite3Module = typeof import("sqlite3");
+type SqliteDatabase = Awaited<ReturnType<SqliteModule["open"]>>;
+
+type MemoryState = {
+  images: GarmentImage[];
+  nextId: number;
+};
+
+const memoryStoreKey = "__fashion_demo_store__";
+
+let dbInstance: Promise<SqliteDatabase> | null = null;
+
+function getMemoryStore() {
+  const globalObject = globalThis as typeof globalThis & {
+    [memoryStoreKey]?: MemoryState;
+  };
+
+  if (!globalObject[memoryStoreKey]) {
+    const images = getDemoSeedImages();
+    const nextId = Math.max(...images.map((image) => image.id), 0) + 1;
+    globalObject[memoryStoreKey] = { images, nextId };
+  }
+
+  return globalObject[memoryStoreKey]!;
+}
 
 function getDbPath() {
   return process.env.GARMENT_DB_PATH || path.join(process.cwd(), "garments.db");
 }
 
 async function getDb() {
-  dbInstance ??= open({
-    filename: getDbPath(),
-    driver: sqlite3.Database,
-  });
+  if (isDemoDeployment()) {
+    throw new Error("SQLite backend is disabled in demo deployment mode.");
+  }
+
+  dbInstance ??= (async () => {
+    const sqlite3 = (await import("sqlite3")) as Sqlite3Module;
+    const sqlite = (await import("sqlite")) as SqliteModule;
+
+    return sqlite.open({
+      filename: getDbPath(),
+      driver: sqlite3.Database,
+    });
+  })();
 
   return dbInstance;
 }
@@ -47,7 +81,7 @@ function normalizeImageUrl(row: ImageRow) {
     return "";
   }
 
-  if (storedPath.startsWith("/")) {
+  if (storedPath.startsWith("/") || storedPath.startsWith("data:")) {
     return storedPath;
   }
 
@@ -73,6 +107,11 @@ function mapRow(row: ImageRow): GarmentImage {
 }
 
 export async function initDb() {
+  if (isDemoDeployment()) {
+    getMemoryStore();
+    return;
+  }
+
   const db = await getDb();
   await db.exec(`
     CREATE TABLE IF NOT EXISTS images (
@@ -110,12 +149,21 @@ export async function initDb() {
   await db.exec(`UPDATE images SET designer = 'Unknown' WHERE designer IS NULL OR trim(designer) = ''`);
   await db.exec(`UPDATE images SET captured_at = created_at WHERE captured_at IS NULL OR trim(captured_at) = ''`);
   if (columnNames.has("filepath")) {
-    await db.exec(`UPDATE images SET image_url = filepath WHERE (image_url IS NULL OR trim(image_url) = '') AND filepath IS NOT NULL`);
+    await db.exec(
+      `UPDATE images SET image_url = filepath WHERE (image_url IS NULL OR trim(image_url) = '') AND filepath IS NOT NULL`,
+    );
   }
 }
 
 export async function listImages() {
   await initDb();
+
+  if (isDemoDeployment()) {
+    return [...getMemoryStore().images].sort(
+      (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+    );
+  }
+
   const db = await getDb();
   const rows = await db.all<ImageRow[]>(`SELECT * FROM images ORDER BY datetime(created_at) DESC, id DESC`);
   return rows.map(mapRow);
@@ -130,6 +178,25 @@ export async function createImageRecord(input: {
   capturedAt: string;
 }) {
   await initDb();
+
+  if (isDemoDeployment()) {
+    const store = getMemoryStore();
+    const image: GarmentImage = {
+      id: store.nextId++,
+      filename: input.filename,
+      imageUrl: input.imageUrl,
+      aiDescription: input.aiDescription,
+      attributes: input.attributes,
+      userAnnotations: [],
+      designer: input.designer,
+      capturedAt: input.capturedAt,
+      createdAt: new Date().toISOString(),
+    };
+
+    store.images.unshift(image);
+    return image;
+  }
+
   const db = await getDb();
   const result = await db.run(
     `
@@ -162,6 +229,23 @@ export async function createImageRecord(input: {
 
 export async function addAnnotation(id: number, annotations: Annotation[]) {
   await initDb();
+
+  if (isDemoDeployment()) {
+    const store = getMemoryStore();
+    const index = store.images.findIndex((image) => image.id === id);
+    if (index === -1) {
+      return null;
+    }
+
+    const existing = store.images[index]!;
+    const updated = {
+      ...existing,
+      userAnnotations: [...existing.userAnnotations, ...annotations],
+    };
+    store.images[index] = updated;
+    return updated;
+  }
+
   const db = await getDb();
   const existing = await db.get<ImageRow>(`SELECT * FROM images WHERE id = ?`, id);
   if (!existing) {
@@ -176,7 +260,7 @@ export async function addAnnotation(id: number, annotations: Annotation[]) {
 }
 
 export async function closeDb() {
-  if (!dbInstance) {
+  if (isDemoDeployment() || !dbInstance) {
     return;
   }
 

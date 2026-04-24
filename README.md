@@ -80,3 +80,4 @@ Included tests:
 - The "AI" layer is a deterministic heuristic mock, chosen so the assignment runs locally with no secrets.
 - Uploaded files are stored on local disk and metadata is stored in SQLite. For a multi-user deployment, I would move assets to object storage and SQLite to Postgres.
 - Search is currently token-based over descriptions, metadata, and annotations. Given more time, I would add embeddings or FTS for more natural retrieval.
+- For Vercel demo deployments, the app automatically falls back to an in-memory seed library plus temporary uploaded image previews so the Next.js app can build without native SQLite dependencies. Local development still uses SQLite.

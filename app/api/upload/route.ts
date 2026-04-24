@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server.js";
 
 import { classifyGarment } from "../../../lib/classifier.ts";
 import { createImageRecord, initDb } from "../../../lib/repository.ts";
+import { isDemoDeployment } from "../../../lib/runtime.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,10 @@ function getUploadDir() {
 
 function sanitizeFilename(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");
+}
+
+function toDataUrl(buffer: Buffer, mimeType: string) {
+  return `data:${mimeType};base64,${buffer.toString("base64")}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -26,15 +31,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Please attach an image file." }, { status: 400 });
     }
 
-    const uploadDir = getUploadDir();
-    await fs.mkdir(uploadDir, { recursive: true });
-
     const storedName = `${Date.now()}-${sanitizeFilename(file.name)}`;
-    const absolutePath = path.join(uploadDir, storedName);
-    const imageUrl = `/uploads/${storedName}`;
-
     const bytes = Buffer.from(await file.arrayBuffer());
-    await fs.writeFile(absolutePath, bytes);
+    let imageUrl = `/uploads/${storedName}`;
+
+    if (isDemoDeployment()) {
+      imageUrl = toDataUrl(bytes, file.type || "application/octet-stream");
+    } else {
+      const uploadDir = getUploadDir();
+      await fs.mkdir(uploadDir, { recursive: true });
+      const absolutePath = path.join(uploadDir, storedName);
+      await fs.writeFile(absolutePath, bytes);
+    }
 
     const context = {
       designer: String(formData.get("designer") || "Unknown"),
