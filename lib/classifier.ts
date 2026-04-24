@@ -212,10 +212,13 @@ function toArray(value: string[] | string | undefined, fallback: string[] = [UNK
 export function parseClassifierOutput(raw: string | Partial<ClassifierOutput>) {
   const parsed = typeof raw === "string" ? (JSON.parse(raw) as Partial<ClassifierOutput>) : raw;
   const attrs = (parsed.attributes ?? {}) as NormalizableAttributes;
-  const location =
-    typeof (attrs.locationContext ?? attrs.location_context) === "string"
-      ? { venue: attrs.locationContext ?? attrs.location_context }
-      : ((attrs.locationContext ?? attrs.location_context) ?? {});
+  const rawLocation = attrs.locationContext ?? attrs.location_context;
+  const location: Partial<StructuredAttributes["locationContext"]> =
+    typeof rawLocation === "string"
+      ? { venue: rawLocation }
+      : rawLocation && typeof rawLocation === "object"
+        ? rawLocation
+        : {};
 
   const attributes: StructuredAttributes = {
     garmentType: attrs.garmentType?.trim() || attrs.type?.trim() || UNKNOWN,
