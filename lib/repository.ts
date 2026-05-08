@@ -57,10 +57,20 @@ async function getDb() {
   dbInstance ??= (async () => {
     const sqlite3 = (await import("sqlite3")) as Sqlite3Module;
     const sqlite = (await import("sqlite")) as SqliteModule;
+    const driver =
+      "Database" in sqlite3
+        ? sqlite3.Database
+        : "default" in sqlite3 && sqlite3.default && "Database" in sqlite3.default
+          ? sqlite3.default.Database
+          : undefined;
+
+    if (!driver) {
+      throw new Error("sqlite3 driver is not available");
+    }
 
     return sqlite.open({
       filename: getDbPath(),
-      driver: sqlite3.Database,
+      driver,
     });
   })();
 

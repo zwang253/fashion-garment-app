@@ -37,6 +37,14 @@ npm run test
 npm run eval
 ```
 
+Optional Gemini setup for real image classification:
+
+```bash
+GEMINI_API_KEY=your_key_here
+```
+
+If `GEMINI_API_KEY` is present, the upload route uses Gemini image understanding for classification. Without it, the app falls back to the local deterministic mock classifier.
+
 ## Architecture notes
 
 - `app/page.tsx` is a server component that reads directly from SQLite instead of fetching the app's own route handlers. This follows the newer Next.js guidance in `node_modules/next/dist/docs/01-app/02-guides/backend-for-frontend.md`.
@@ -46,6 +54,7 @@ npm run eval
   - `PATCH /api/images/[id]/annotations`
 - Shared logic lives in `lib/` so the UI, routes, tests, and evaluation script all exercise the same classifier and filter code.
 - The classifier is intentionally local and deterministic. It infers metadata from filename plus upload context, which makes the assignment runnable without external model credentials while still demonstrating the full product flow.
+- The upload pipeline can optionally switch to real Gemini-based image classification when `GEMINI_API_KEY` is configured.
 
 ## Evaluation
 

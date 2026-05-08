@@ -4,6 +4,7 @@ import path from "node:path";
 import { NextRequest, NextResponse } from "next/server.js";
 
 import { classifyGarment } from "../../../lib/classifier.ts";
+import { classifyWithGemini, shouldUseGeminiClassifier } from "../../../lib/classifier-gemini.ts";
 import { createImageRecord, initDb } from "../../../lib/repository.ts";
 import { isDemoDeployment } from "../../../lib/runtime.ts";
 
@@ -53,7 +54,13 @@ export async function POST(request: NextRequest) {
       capturedAt: String(formData.get("capturedAt") || new Date().toISOString().slice(0, 10)),
     };
 
-    const aiResult = classifyGarment(file.name, context);
+    const aiResult = shouldUseGeminiClassifier()
+      ? await classifyWithGemini({
+          imageBase64: bytes.toString("base64"),
+          mimeType: file.type || "image/jpeg",
+          context,
+        })
+      : classifyGarment(file.name, context);
     const image = await createImageRecord({
       filename: file.name,
       imageUrl,
