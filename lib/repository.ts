@@ -21,6 +21,12 @@ type ImageRow = {
 type SqliteModule = typeof import("sqlite");
 type Sqlite3Module = typeof import("sqlite3");
 type SqliteDatabase = Awaited<ReturnType<SqliteModule["open"]>>;
+type Sqlite3DriverShape = {
+  Database?: Sqlite3Module["Database"];
+  default?: {
+    Database?: Sqlite3Module["Database"];
+  };
+};
 
 type MemoryState = {
   images: GarmentImage[];
@@ -57,12 +63,8 @@ async function getDb() {
   dbInstance ??= (async () => {
     const sqlite3 = (await import("sqlite3")) as Sqlite3Module;
     const sqlite = (await import("sqlite")) as SqliteModule;
-    const driver =
-      "Database" in sqlite3
-        ? sqlite3.Database
-        : "default" in sqlite3 && sqlite3.default && "Database" in sqlite3.default
-          ? sqlite3.default.Database
-          : undefined;
+    const sqlite3Module = sqlite3 as Sqlite3Module & Sqlite3DriverShape;
+    const driver = sqlite3Module.Database ?? sqlite3Module.default?.Database;
 
     if (!driver) {
       throw new Error("sqlite3 driver is not available");
