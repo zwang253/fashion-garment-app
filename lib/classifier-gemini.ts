@@ -76,8 +76,8 @@ Guidance:
 - If multiple garments or people are visible, choose the most visually dominant or most design-relevant garment as the primary garment.
 - Mention secondary garments or other visible styling elements only in the natural-language description or trend notes.
 - Focus on garment silhouette, visible material cues, styling language, pattern, and color story.
-- `garmentType`, `style`, `material`, `pattern`, `season`, and `colorPalette` should describe the primary garment, not the entire outfit.
-- Keep `description` centered on the primary garment first, with any secondary styling context afterward.
+- The fields garmentType, style, material, pattern, season, and colorPalette should describe the primary garment, not the entire outfit.
+- Keep the description centered on the primary garment first, with any secondary styling context afterward.
 - Use the upload context only when helpful.
 - If a field cannot be inferred reliably from the image/context, use "Unknown".
 - Keep arrays non-empty when possible, but use ["Unknown"] if needed.
