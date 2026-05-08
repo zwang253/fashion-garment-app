@@ -41,9 +41,25 @@ Optional Gemini setup for real image classification:
 
 ```bash
 GEMINI_API_KEY=your_key_here
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
-If `GEMINI_API_KEY` is present, the upload route uses Gemini image understanding for classification. Without it, the app falls back to the local deterministic mock classifier.
+Add these values to `.env.local` for local development. If `GEMINI_API_KEY` is present, the upload route uses Gemini image understanding for classification. Without it, the app falls back to the local deterministic mock classifier.
+
+## Vercel deployment notes
+
+The Vercel deployment is intended as a demo-friendly serverless version of the app.
+
+- Without `GEMINI_API_KEY`, the deployed app uses seeded demo data and the local mock classifier.
+- With `GEMINI_API_KEY` configured in Vercel project settings, upload classification can use Gemini on the server.
+- Vercel still runs in demo-compatible storage mode rather than the full local SQLite plus disk-upload workflow.
+
+For Vercel Gemini setup, add these environment variables in the Vercel project settings:
+
+```bash
+GEMINI_API_KEY=your_key_here
+GEMINI_MODEL=gemini-2.5-flash
+```
 
 ## Architecture notes
 
