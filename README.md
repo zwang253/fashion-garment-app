@@ -4,7 +4,7 @@ A lightweight Next.js proof of concept for the fashion-garment case study. Desig
 
 ## Live Demo
 
-Vercel demo: https://fashion-garment-app-t3t4.vercel.app/
+Vercel demo: https://fashion-garment-app.vercel.app/
 
 Note: the Vercel deployment runs in demo mode for serverless compatibility. It includes seeded sample data and lightweight demo interactions, while the full local workflow uses SQLite plus local file storage.
 
